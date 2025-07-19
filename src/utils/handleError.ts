@@ -11,7 +11,7 @@ export const handleError = async (res: Response, err: any) => {
   } else if (err.code === 11000) {
     const duplicateField = Object.keys(err.keyValue).join(', ');
     message = [`Duplicate value found for: ${duplicateField}`];
-  } else if (err.name === 'CastError' && err.kind == 'ObjectId') {
+  } else if (err.name === 'CastError' && err.kind === 'ObjectId') {
     err.statusCodes = HttpStatus.BAD_REQUEST;
     message = [messageKey.invalidId];
   }

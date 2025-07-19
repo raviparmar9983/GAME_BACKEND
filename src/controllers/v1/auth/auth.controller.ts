@@ -1,20 +1,24 @@
+import { UserDTO, LoginDTO, ForgotPasswordDTO, ResetPasswordDTO } from '@dtos';
 import {
   Body,
   Controller,
+  Get,
+  HttpCode,
   HttpStatus,
+  Param,
   Post,
   Res,
   UsePipes,
 } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { LoginDTO, UserDTO } from 'src/dtos/user.dtos';
-import { userValidator } from 'src/validators/user.validator';
+import { handleError } from '@utils';
+import { forgotPasswordValidator, resetPasswordValidator, userValidator } from '@validators';
 import { Response } from 'express';
-import { handleError } from 'src/utils/handleError';
-import { YupValidationPipe } from 'src/comman/pipe/yup.validator';
+import { YupValidationPipe } from 'src/comman/pipe';
+import { AuthService } from './auth.service';
 @Controller('v1/auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
+
   @Post('/register')
   @UsePipes(new YupValidationPipe(userValidator))
   async registerUser(@Body() userData: UserDTO, @Res() res: Response) {
@@ -34,5 +38,38 @@ export class AuthController {
     } catch (error) {
       await handleError(res, error);
     }
+  }
+
+  @Get('/verification-link/:token')
+  // @Redirect()
+  async VerifyUser(@Param('token') token: string, @Res() res: Response) {
+    try {
+      const link = await this.authService.verifyUser(token);
+      res.redirect(link?.data);
+    } catch (error) {
+      handleError(res, error);
+    }
+  }
+
+
+  @Post('forgot-password')
+  @UsePipes(new YupValidationPipe(forgotPasswordValidator))
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() body: ForgotPasswordDTO) {
+    const { email } = body;
+    const result = await this.authService.forgotPassword(email);
+    return {
+      status: true,
+      message: result.message,
+    };
+  }
+
+  @Post('reset-password')
+  @UsePipes(new YupValidationPipe(resetPasswordValidator))
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() body: ResetPasswordDTO) {
+    const { token, password } = body;
+    const result = await this.authService.resetPassword(token, password);
+    return result;
   }
 }

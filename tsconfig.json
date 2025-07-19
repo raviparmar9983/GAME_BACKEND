@@ -1,4 +1,7 @@
 {
+  "ts-node":{
+    "require": ["tsconfig-paths/register"]
+  },
   "compilerOptions": {
     "module": "commonjs",
     "declaration": true,
@@ -16,6 +19,23 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    "paths": {
+      "@constants": ["src/constants/index"],
+      "@decorators": ["src/common/decorators/index"],
+      "@filters": ["src/common/filters/index"],
+      "@guards": ["src/common/guards/index"],
+      "@interceptors": ["src/common/interceptor/index"],
+      "@middlewares": ["src/common/middlewares/index"],
+      "@pipes": ["src/common/pipe/index"],
+      "@templates": ["src/common/templates/index"],
+      "@v1": ["src/controllers/v1/index"],
+      "@modules": ["src/modules/index"],
+      "@dtos": ["src/dtos/index"],
+      "@models": ["src/models/index"],
+      "@queries": ["src/queries/index"],
+      "@utils": ["src/utils/index"],
+      "@validators": ["src/validators/index"]
+    }
   }
 }

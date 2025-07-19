@@ -1,11 +1,12 @@
 import { Global, Module } from '@nestjs/common';
-import { AuthModule } from 'src/controllers/v1/auth/auth.module';
-import { JwtService } from 'src/utils/jwt';
+import { CryptoService, JwtService } from '@utils';
+import { AuthModule } from '@v1';
+import { EmailService } from 'src/utils/nodemailer';
 
 @Global()
 @Module({
   imports: [AuthModule],
-  providers: [JwtService],
-  exports: [JwtService],
+  providers: [JwtService, CryptoService, EmailService],
+  exports: [JwtService, CryptoService, EmailService],
 })
 export class Modules {}

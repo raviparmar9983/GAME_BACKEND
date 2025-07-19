@@ -24,7 +24,7 @@ export class AuthGuard implements CanActivate {
       req.body.jwtTokendata = decoded?.payload?.userData;
       return true;
     } catch (err) {
-      throw new ForbiddenException();
+      throw new ForbiddenException(err);
     }
   }
 }

@@ -3,10 +3,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { DBModule, Modules } from './modules';
-import { FileModule } from './controllers/v1/file/file.module';
 import { join } from 'path';
 import { ServeStaticModule } from '@nestjs/serve-static';
-import { QuizModule } from './controllers/v1/quiz/quiz.module';
 
 @Module({
   imports: [
@@ -21,8 +19,6 @@ import { QuizModule } from './controllers/v1/quiz/quiz.module';
     }),
     DBModule,
     Modules,
-    FileModule,
-    QuizModule,
   ],
   controllers: [AppController],
   providers: [AppService],

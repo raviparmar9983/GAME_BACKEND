@@ -12,18 +12,18 @@ import { MongooseModule } from '@nestjs/mongoose';
         return {
           uri: db_url,
           connectionFactory: (connection) => {
-            console.log('DB URL:', db_url);
+            console.info('DB URL:', db_url);
 
             connection.on('connected', () => {
-              console.log('DB connected Successfully');
+              console.info('DB connected Successfully');
             });
 
             connection.on('disconnected', () => {
-              console.log('DB disconnected Successfully');
+              console.info('DB disconnected Successfully');
             });
 
             connection.on('error', (error) => {
-              console.log('DB Not connected', error);
+              console.info('DB Not connected', error);
             });
 
             return connection;
