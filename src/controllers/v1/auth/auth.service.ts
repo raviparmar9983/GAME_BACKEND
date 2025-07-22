@@ -22,7 +22,7 @@ export class AuthService {
     private cryptoService: CryptoService,
     private emailService: EmailService,
     private configService: ConfigService,
-  ) { }
+  ) {}
 
   async registerUser(userData: UserDTO) {
     try {
@@ -60,7 +60,7 @@ export class AuthService {
       if (!user) {
         throw new CustomeError(messageKey.userNotFound, HttpStatus.NOT_FOUND);
       }
-      if (!user.isEmailVerified) {  
+      if (!user.isEmailVerified) {
         await this.sendVerticationLink(user._id.toString(), user.email);
         throw new CustomeError(
           messageKey.verificationEmailSent,
@@ -147,7 +147,7 @@ export class AuthService {
     await this.emailService.sendEmail({
       to: [user.email],
       content: {
-        subject: "Reset Your Password",
+        subject: 'Reset Your Password',
         html: `<p>Click the link below to reset your password:</p><a href="${resetLink}">${resetLink}</a>`,
       },
     });
@@ -156,7 +156,6 @@ export class AuthService {
       message: messageKey.verificationEmailSent,
     };
   }
-
 
   async resetPassword(token: string, newPassword: string) {
     const user = await this.userModel.findOne({

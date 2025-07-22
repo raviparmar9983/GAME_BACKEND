@@ -11,11 +11,11 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
 
   app.enableCors({
-    origin: ['http://localhost:3000'],
+    origin: ['http://localhost:3000', 'http://192.168.4.51:3002'],
     credentials: true,
   });
   const port: number = configService.get('PORT') || 8080;
-  app.useGlobalInterceptors(new LoggerInterceptor())
+  app.useGlobalInterceptors(new LoggerInterceptor());
   app.setGlobalPrefix('api');
   app.useGlobalFilters(new ExceptionHandler());
   await app.listen(port, () => {

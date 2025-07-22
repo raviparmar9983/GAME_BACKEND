@@ -19,7 +19,6 @@ export const userValidator = yup.object({
   birthDate: yup.date().optional().nullable(),
 });
 
-
 export const forgotPasswordValidator = yup.object({
   email: yup.string().email('Invalid email').required('Email is required'),
 });

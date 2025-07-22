@@ -11,13 +11,17 @@ import {
   UsePipes,
 } from '@nestjs/common';
 import { handleError } from '@utils';
-import { forgotPasswordValidator, resetPasswordValidator, userValidator } from '@validators';
+import {
+  forgotPasswordValidator,
+  resetPasswordValidator,
+  userValidator,
+} from '@validators';
 import { Response } from 'express';
 import { YupValidationPipe } from 'src/comman/pipe';
 import { AuthService } from './auth.service';
 @Controller('v1/auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   @Post('/register')
   @UsePipes(new YupValidationPipe(userValidator))
@@ -50,7 +54,6 @@ export class AuthController {
       handleError(res, error);
     }
   }
-
 
   @Post('forgot-password')
   @UsePipes(new YupValidationPipe(forgotPasswordValidator))
