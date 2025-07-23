@@ -179,4 +179,22 @@ export class AuthService {
       message: messageKey.successMessage,
     };
   }
+
+  async getUserDetailsByToken(userId: string) {
+    const user = await this.userModel.findById(userId);
+    if (!user || user.isDeleted)
+      throw new CustomeError(messageKey.userNotFound);
+    return {
+      status: true,
+      message: messageKey.successMessage,
+      data: {
+        _id: user._id.toString(),
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        profilePic: user.profilePic,
+      },
+    };
+  }
 }

@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Res,
+  UseGuards,
   UsePipes,
 } from '@nestjs/common';
 import { handleError } from '@utils';
@@ -19,6 +20,7 @@ import {
 import { Response } from 'express';
 import { YupValidationPipe } from 'src/comman/pipe';
 import { AuthService } from './auth.service';
+import { AuthGuard } from 'src/comman/guards';
 @Controller('v1/auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -74,5 +76,14 @@ export class AuthController {
     const { token, password } = body;
     const result = await this.authService.resetPassword(token, password);
     return result;
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('/user')
+  @HttpCode(HttpStatus.OK)
+  async getUser(@Body() body: any) {
+    const { _id } = body?.jwtTokendata;
+    const res = await this.authService.getUserDetailsByToken(_id);
+    return res;
   }
 }

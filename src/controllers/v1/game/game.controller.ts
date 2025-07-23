@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  HttpCode,
   HttpStatus,
   Post,
   Req,
@@ -23,6 +24,7 @@ export class GameController {
 
   @Post('')
   @UsePipes(new YupValidationPipe(createRoomValidators))
+  @HttpCode(HttpStatus.CREATED)
   async createGame(
     @Req() req: Request,
     @Body() gameData: GameDTO,
@@ -31,7 +33,7 @@ export class GameController {
     try {
       const { _id } = req?.body?.jwtTokendata;
       const game = await this.gameService.createGame(_id, gameData);
-      res.status(HttpStatus.CREATED).json(game);
+      return game;
     } catch (err) {
       handleError(res, err);
     }
