@@ -1,5 +1,7 @@
 import { messageKey } from '@constants';
 import {
+  ConnectedSocket,
+  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
   OnGatewayInit,
@@ -63,6 +65,86 @@ export class GameGateway
       });
     } catch (err) {
       client.emit('error', { message: err?.message || 'Failed to join room' });
+    }
+  }
+
+  @SubscribeMessage('selectIcon')
+  async handleSelectIcon(
+    client: Socket,
+    payload: { gameId: string; icon: string },
+  ) {
+    try {
+      const userId = client?.data?.user?._id;
+      if (!userId) throw new CustomeError(messageKey.unauthorizeResourse);
+
+      const updatedPlayers = await this.gameService.setPlayerIcon({
+        gameId: payload.gameId,
+        userId,
+        icon: payload.icon,
+      });
+
+      // broadcast updated players to the room
+      this.server.to(payload.gameId).emit('playerUpdated', {
+        players: updatedPlayers,
+      });
+
+      // return ack to the caller (socket.emit with callback will receive this)
+      return { status: true, players: updatedPlayers };
+    } catch (err) {
+      // emit error to caller only
+      client.emit('error', {
+        message: err?.message || 'Failed to select icon',
+      });
+      // also return failure ack
+      return {
+        status: false,
+        message: err?.message || 'Failed to select icon',
+      };
+    }
+  }
+
+  @SubscribeMessage('startGame')
+  async handleStartGame(@MessageBody() data: { gameId: string }) {
+    const { gameId } = data;
+
+    // const game = await this.gameService.startGame(gameId);
+    // if (!game) return { status: false, message: 'Game not found or cannot start' };
+
+    this.server.to(gameId).emit('gameStarted', { gameId });
+    return { status: true };
+  }
+
+  /** -------------------------
+   * Player makes a move
+   * -------------------------
+   * */
+  @SubscribeMessage('PLAY_MOVE')
+  async handlePlayMove(
+    @MessageBody()
+    body: { gameId: string; userId: string; row: number; col: number },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const { _id } = client.data.user;
+    const { gameId, row, col } = body;
+
+    try {
+      const updatedGame = await this.gameService.playMove(
+        gameId,
+        _id,
+        row,
+        col,
+      );
+
+      // broadcast updated full game to all players in the room
+      this.server.to(gameId).emit('GAME_UPDATED', updatedGame);
+      // also send to the caller (redundant but keeps parity)
+      client.emit('GAME_UPDATED', updatedGame);
+
+      return { success: true };
+    } catch (err) {
+      // if err is BadRequestException from Nest it will include message
+      const message = err?.message ?? 'move_failed';
+      return { error: message };
     }
   }
 }

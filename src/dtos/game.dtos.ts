@@ -16,4 +16,5 @@ export interface GameDTO {
   currTurn: Types.ObjectId;
   status?: GameStatus;
   completed?: boolean;
+  roomCode?: boolean;
 }

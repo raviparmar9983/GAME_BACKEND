@@ -1,8 +1,9 @@
 import {
   Body,
   Controller,
-  HttpCode,
+  Get,
   HttpStatus,
+  Param,
   Post,
   Req,
   Res,
@@ -24,7 +25,6 @@ export class GameController {
 
   @Post('')
   @UsePipes(new YupValidationPipe(createRoomValidators))
-  @HttpCode(HttpStatus.CREATED)
   async createGame(
     @Req() req: Request,
     @Body() gameData: GameDTO,
@@ -33,7 +33,33 @@ export class GameController {
     try {
       const { _id } = req?.body?.jwtTokendata;
       const game = await this.gameService.createGame(_id, gameData);
-      return game;
+      res.status(HttpStatus.CREATED).json(game);
+    } catch (err) {
+      handleError(res, err);
+    }
+  }
+
+  @Post('/join/:code')
+  async joinPlayerToGame(
+    @Param('code') code: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    try {
+      const { _id } = req?.body?.jwtTokendata;
+      const game = await this.gameService.joinPlayerFromCode(code, _id);
+      res.status(HttpStatus.CREATED).json(game);
+    } catch (err) {
+      handleError(res, err);
+    }
+  }
+
+  @Get(':gameId')
+  @UsePipes(new YupValidationPipe(createRoomValidators))
+  async getGame(@Param('gameId') gameId: string, @Res() res: Response) {
+    try {
+      const game = await this.gameService.getGameById(gameId);
+      res.status(HttpStatus.OK).json(game);
     } catch (err) {
       handleError(res, err);
     }

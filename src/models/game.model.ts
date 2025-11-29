@@ -29,6 +29,12 @@ const GameSchema = new Schema(
       type: [[String]],
       required: true,
     },
+    roomCode: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
     currTurn: {
       type: Types.ObjectId,
       ref: 'User',
