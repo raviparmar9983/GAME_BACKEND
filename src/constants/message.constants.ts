@@ -13,7 +13,8 @@ const messageKey = {
   formUpdateSuccessful: 'Form updated successfully',
   recordUpdatedSuccessfully: 'Record updated successfully.',
   recordDeletedSuccessfully: 'Record deleted successfully.',
-  recordCreatedSuccessfully: 'Record created successfully.',
+  recordCreatedSuccessfully: (name?: string) =>
+    `${name ? name : 'Record'} created successfully.`,
   exitPoint: 'Exit Point updated successfully',
   importedSuccessfully: 'Items imported successfully',
   requestCompletedSuccessfully: 'Request completed successfully.',
@@ -104,9 +105,11 @@ const messageKey = {
   provideExcelFile: 'Please provide Excel File',
   latestAppDictionary: 'You have latest files',
   childPreLeaveExist: 'Child pre leave is exist for this date range',
-  EXITTIMEEXCEEDED: 'Exit Time Exceeded',
+  roomIsFull: 'Room is Full',
   attendanceExist:
     'Cannot create an entrance report after an exit report has been created',
+  gameCompleted: 'Game is already completed',
+  roomJoinFail: 'Room join fail',
 };
 
 export { messageKey };

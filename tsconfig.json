@@ -1,5 +1,5 @@
 {
-  "ts-node":{
+  "ts-node": {
     "require": ["tsconfig-paths/register"]
   },
   "compilerOptions": {
@@ -35,7 +35,8 @@
       "@models": ["src/models/index"],
       "@queries": ["src/queries/index"],
       "@utils": ["src/utils/index"],
-      "@validators": ["src/validators/index"]
+      "@validators": ["src/validators/index"],
+      "@gateways": ["src/gateways/index"]
     }
   }
 }

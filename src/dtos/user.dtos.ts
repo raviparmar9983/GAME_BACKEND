@@ -9,6 +9,7 @@ export interface UserDTO {
   isEmailVerified: boolean;
   passwordResetTokenExpires?: Date;
   passwordResetToken?: string;
+  isDeleted?: boolean;
 }
 
 export interface LoginDTO {

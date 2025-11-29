@@ -1,5 +1,5 @@
 const modelKey = {
   users: 'User',
-  quiz: 'Quiz',
+  game: 'games',
 };
 export { modelKey };
