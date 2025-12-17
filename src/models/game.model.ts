@@ -16,6 +16,10 @@ const playerSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    name: {
+      type: String,
+      required: true,
+    },
   },
   { _id: false },
 );

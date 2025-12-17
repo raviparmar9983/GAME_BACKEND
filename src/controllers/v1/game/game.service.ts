@@ -1,5 +1,5 @@
 import { GameStatus, messageKey, modelKey } from '@constants';
-import { GameDTO } from '@dtos';
+import { GameDTO, GameResultDTO } from '@dtos';
 import {
   BadRequestException,
   Injectable,
@@ -8,33 +8,28 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { CustomeError } from '@utils';
 import { Model } from 'mongoose';
+import { calculateScores } from 'src/utils/calculateResult';
 
 @Injectable()
 export class GameService {
   constructor(
     @InjectModel(modelKey.game) private readonly gameModel: Model<GameDTO>,
+    @InjectModel(modelKey.gameResult)
+    private readonly gameResultModel: Model<GameResultDTO>,
   ) {}
 
-  async createGame(userId: string, gameData: GameDTO) {
+  async createGame(userId: string, gameData: GameDTO, name: string) {
     const { gridSize, playerCount } = gameData;
     const grid = this.createGrid(gridSize);
 
     let roomCode = '';
     let attempts = 0;
-    const maxAttempts = 5;
 
-    while (attempts < maxAttempts) {
+    while (attempts < 5) {
       attempts++;
       roomCode = this.generateRoomCode(6);
-
       const exists = await this.gameModel.findOne({ roomCode });
       if (!exists) break;
-    }
-
-    if (!roomCode) {
-      throw new CustomeError(
-        'Failed to generate unique room code,please try again',
-      );
     }
 
     const game = await this.gameModel.create({
@@ -42,10 +37,12 @@ export class GameService {
       grid,
       playerCount,
       roomCode,
-      players: [{ userId }],
+      players: [{ userId, name }],
       currTurn: userId,
+      status: GameStatus.WAITING,
+      completed: false,
     });
-    if (!game) throw new CustomeError(messageKey.recordNotCreated);
+
     return {
       status: true,
       message: messageKey.recordCreatedSuccessfully('Room'),
@@ -53,16 +50,16 @@ export class GameService {
     };
   }
 
-  createGrid(gridSize) {
+  createGrid(gridSize: number) {
     return Array.from({ length: gridSize }, () =>
       Array.from({ length: gridSize }, () => null),
     );
   }
 
-  async joinPlayerFromCode(code: string, userId: string) {
+  async joinPlayerFromCode(code: string, userId: string, name: string) {
     const game = await this.gameModel.findOne({ roomCode: code });
     if (!game) throw new CustomeError(messageKey.recordNotFound('Game'));
-    await this.joinPlayerToGame({ gameId: game._id.toString(), userId });
+    await this.joinPlayerToGame({ gameId: game._id.toString(), userId, name });
     return {
       status: true,
       data: { gameId: game._id.toString() },
@@ -73,41 +70,42 @@ export class GameService {
   async joinPlayerToGame({
     gameId,
     userId,
+    name,
   }: {
     gameId: string;
     userId: string;
+    name: string;
   }) {
     const game = await this.gameModel.findById(gameId);
     if (!game) throw new CustomeError(messageKey.recordNotFound('Game'));
-    if (game.completed) throw new CustomeError(messageKey.gameCompleted);
-    if (game.players.find((p) => p.userId.toString() === userId)) return true;
+
+    if (game.status !== GameStatus.WAITING) {
+      if (game.completed) {
+        throw new CustomeError('Game Completed');
+      }
+      throw new CustomeError('Game already started');
+    }
+
+    if (game.players.find((p) => String(p.userId) === String(userId)))
+      return true;
+
     if (game.players.length >= game.playerCount) {
       throw new CustomeError(messageKey.roomIsFull);
     }
-    return await this.addPlayerToGame(gameId, userId);
-  }
 
-  async addPlayerToGame(gameId: string, userId: string) {
-    const result = await this.gameModel.updateOne(
+    await this.gameModel.updateOne(
       { _id: gameId },
-      {
-        $push: {
-          players: {
-            userId,
-            isConnected: true,
-          },
-        },
-      },
+      { $push: { players: { userId, isConnected: true, name } } },
     );
-    if (result.modifiedCount === 0)
-      throw new CustomeError('Failed to add player');
+
     return true;
   }
 
   async getGamePlayers(gameId: string) {
     const game = await this.gameModel
       .findById(gameId)
-      .populate('players.userId', 'firstName lastName  email');
+      .populate('players.userId', 'firstName lastName email');
+
     return game?.players || [];
   }
 
@@ -120,42 +118,54 @@ export class GameService {
     userId: string;
     icon: string;
   }) {
-    // fetch game
     const game = await this.gameModel.findById(gameId);
-    if (!game) throw new CustomeError(messageKey.recordNotFound('Game'));
-    if (game.completed) throw new CustomeError(messageKey.gameCompleted);
+    if (!game) throw new CustomeError('Game not found');
 
-    // check player present
+    if (game.status !== GameStatus.WAITING) {
+      throw new CustomeError('Game already started, icon locked');
+    }
+
     const player = game.players.find(
-      (p: any) => p.userId.toString() === userId.toString(),
+      (p) => String(p.userId) === String(userId),
     );
-    if (!player) throw new CustomeError('Not Allowed to select ICON');
+    if (!player) throw new CustomeError('Not allowed');
 
-    // check icon availability (no other player using same icon)
-    const takenBy = game.players.find((p: any) => p.icon === icon);
-    if (takenBy && takenBy.userId.toString() !== userId.toString()) {
+    const taken = game.players.find((p) => p.icon === icon);
+    if (taken && String(taken.userId) !== String(userId)) {
       throw new CustomeError('Icon already taken');
     }
 
-    // set icon for this player
-    const result = await this.gameModel.updateOne(
-      { _id: gameId, 'players.userId': player.userId },
+    await this.gameModel.updateOne(
+      { _id: gameId, 'players.userId': userId },
       { $set: { 'players.$.icon': icon } },
     );
 
-    if (result.modifiedCount === 0) {
-      throw new CustomeError('Failed to set icon');
+    return this.getGamePlayers(gameId);
+  }
+
+  async startGame(gameId: string) {
+    const game = await this.gameModel.findById(gameId);
+    if (!game) throw new CustomeError('Game not found');
+
+    if (game.status !== GameStatus.WAITING) {
+      throw new CustomeError('Game already started');
     }
 
-    // return updated players list
-    const updated = await this.getGamePlayers(gameId);
-    return updated;
+    const allSelected = game.players.every((p) => p.icon);
+    if (!allSelected) {
+      throw new CustomeError('All players must select icon');
+    }
+
+    game.status = GameStatus.ACTIVE;
+    await game.save();
+
+    return game;
   }
 
   async getGameById(gameId: string) {
     const game = await this.gameModel
       .findById(gameId)
-      .populate('players.userId', 'firstName lastName') // only fetch needed fields
+      .populate('players.userId', 'firstName lastName')
       .lean();
 
     if (!game) throw new NotFoundException('Game not found');
@@ -181,69 +191,116 @@ export class GameService {
     const game = await this.gameModel.findById(gameId);
     if (!game) throw new BadRequestException('game_not_found');
 
-    // --- ensure the user is a participant ---
+    if (game.status !== GameStatus.ACTIVE) {
+      throw new BadRequestException('Game not Start');
+    }
+
     const playerIndex = game.players.findIndex(
-      (p: any) => String(p.userId) === String(userId),
+      (p) => String(p.userId) === String(userId),
     );
-    if (playerIndex === -1) throw new BadRequestException('player_not_in_game');
+    if (playerIndex === -1)
+      throw new BadRequestException('You are not Part of this game');
 
-    // --- ensure it's the player's turn (currTurn is an ObjectId) ---
-    if (!game.currTurn || String(game.currTurn) !== String(userId)) {
-      throw new BadRequestException('not_your_turn');
+    if (String(game.currTurn) !== String(userId)) {
+      throw new BadRequestException('Wrong turn');
     }
 
-    // --- validate bounds ---
-    const size =
-      game.gridSize ?? (Array.isArray(game.grid) ? game.grid.length : null);
-    if (size === null) throw new BadRequestException('invalid_game_size');
+    if (game.grid[row][col] !== null)
+      throw new BadRequestException('Cell already filled');
 
-    if (row < 0 || col < 0 || row >= size || col >= size) {
-      throw new BadRequestException('invalid_cell');
-    }
-
-    // --- validate empty cell ---
-    const currentVal = game.grid[row][col];
-    if (currentVal !== null && currentVal !== '') {
-      throw new BadRequestException('cell_not_empty');
-    }
-
-    // --- use player's icon from DB (do NOT trust frontend icon) ---
     const player = game.players[playerIndex];
-    if (!player?.icon) throw new BadRequestException('no_icon_assigned');
-
     game.grid[row][col] = player.icon;
 
-    // --- rotate turn: find next player's userId (round-robin) ---
-    const totalPlayers = game.players.length;
-    const nextIndex = (playerIndex + 1) % totalPlayers;
-    const nextPlayerUserId = game.players[nextIndex].userId;
-    game.currTurn = nextPlayerUserId;
+    const nextIndex = (playerIndex + 1) % game.players.length;
+    game.currTurn = game.players[nextIndex].userId;
 
-    // --- optional: check completion ---
-    const isFull = game.grid
-      .flat()
-      .every((cell: any) => cell !== null && cell !== '');
+    const isFull = game.grid.flat().every((c) => c !== null);
     if (isFull) {
       game.completed = true;
       game.status = GameStatus.COMPLETED;
     }
 
     await game.save();
-
-    // return full game document (Mongoose doc -> plain object)
-    // Ensure currTurn is serializable (ObjectId -> string when JSONified)
-    return await this.getGameById(gameId);
+    if (game.completed) {
+      try {
+        this.getOrCalculateResult(gameId);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    return this.getGameById(gameId);
   }
 
   private generateRoomCode(length = 6): string {
     const chars =
       'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let code = '';
+    return Array.from({ length })
+      .map(() => chars[Math.floor(Math.random() * chars.length)])
+      .join('');
+  }
 
-    for (let i = 0; i < length; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
+  async getOrCalculateResult(gameId: string) {
+    // 1️⃣ Return cached result if exists
+    const existingResult = await this.gameResultModel.findOne({ gameId });
+    if (existingResult) {
+      return {
+        source: 'DB',
+        result: existingResult,
+      };
     }
 
-    return code;
+    // 2️⃣ Validate game
+    const game = await this.gameModel.findById(gameId);
+    if (!game) throw new NotFoundException('Game not found');
+
+    if (!game.completed) {
+      throw new BadRequestException('Game is not completed yet');
+    }
+
+    // 3️⃣ Prepare lookup map (performance)
+    const playerMap = new Map(
+      game.players.map((p) => [p.userId.toString(), p]),
+    );
+
+    // 4️⃣ Calculate scores
+    const scores = calculateScores(game.grid, game.players);
+    const maxScore = Math.max(...scores.map((s) => s.point));
+
+    // 5️⃣ Final player snapshot (IMPORTANT)
+    const finalPlayers = scores.map((s) => {
+      const gamePlayer = playerMap.get(s.userId);
+
+      return {
+        userId: s.userId,
+        name: gamePlayer?.name ?? 'Player', // 👈 SNAPSHOT NAME
+        icon: s.icon,
+        point: s.point,
+        block: s.block,
+        isWinner: maxScore > 0 && s.point === maxScore,
+        isConnectedAtEnd: gamePlayer?.isConnected ?? false,
+      };
+    });
+
+    // 6️⃣ Decide game status
+    const gameStatus = maxScore === 0 ? 'DRAW' : 'WIN';
+
+    // 7️⃣ Save result
+    const savedResult = await this.gameResultModel.create({
+      gameId: game._id,
+      roomCode: game.roomCode,
+      gridSize: game.gridSize,
+      status: gameStatus,
+      startedAt: game.createdAt,
+      endedAt: new Date(),
+      durationMs: Date.now() - game.createdAt.getTime(),
+      players: finalPlayers,
+      finalGrid: game.grid,
+    });
+
+    // 8️⃣ Return consistent response
+    return {
+      source: 'CALCULATED',
+      result: savedResult,
+    };
   }
 }
