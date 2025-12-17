@@ -16,7 +16,7 @@ async function bootstrap() {
       'http://192.168.227.113:3000',
       'http://192.168.164.113:3000',
       'http://192.168.1.39:3000', // your LAN frontend
-      'http://10.219.53.113:3000',
+      ' http://172.27.208.1:3000',
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,

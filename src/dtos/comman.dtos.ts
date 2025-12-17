@@ -12,3 +12,8 @@ export interface BaseListQueryParamDTO {
   pageNum: number;
   pageLimit: number;
 }
+
+export interface AuditFieldDTO {
+  createdAt: Date;
+  updateAt: Date;
+}

@@ -31,8 +31,12 @@ export class GameController {
     @Res() res: Response,
   ) {
     try {
-      const { _id } = req?.body?.jwtTokendata;
-      const game = await this.gameService.createGame(_id, gameData);
+      const { _id, firstName, lastName } = req?.body?.jwtTokendata;
+      const game = await this.gameService.createGame(
+        _id,
+        gameData,
+        `${firstName} ${lastName}`,
+      );
       res.status(HttpStatus.CREATED).json(game);
     } catch (err) {
       handleError(res, err);
@@ -46,8 +50,12 @@ export class GameController {
     @Res() res: Response,
   ) {
     try {
-      const { _id } = req?.body?.jwtTokendata;
-      const game = await this.gameService.joinPlayerFromCode(code, _id);
+      const { _id, firstName, lastName } = req?.body?.jwtTokendata;
+      const game = await this.gameService.joinPlayerFromCode(
+        code,
+        _id,
+        `${firstName} ${lastName}`,
+      );
       res.status(HttpStatus.CREATED).json(game);
     } catch (err) {
       handleError(res, err);
@@ -62,6 +70,16 @@ export class GameController {
       res.status(HttpStatus.OK).json(game);
     } catch (err) {
       handleError(res, err);
+    }
+  }
+
+  @Get(':gameId/result')
+  async getGameResult(@Param('gameId') gameId: string, @Res() res: Response) {
+    try {
+      const result = await this.gameService.getOrCalculateResult(gameId);
+      res.status(HttpStatus.OK).json(result);
+    } catch (error) {
+      handleError(res, error);
     }
   }
 }

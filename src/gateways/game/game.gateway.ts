@@ -1,4 +1,3 @@
-import { messageKey } from '@constants';
 import {
   ConnectedSocket,
   MessageBody,
@@ -8,16 +7,14 @@ import {
   SubscribeMessage,
   WebSocketGateway,
 } from '@nestjs/websockets';
-import { CustomeError, JwtService } from '@utils';
+import { JwtService } from '@utils';
 
 import { Server, Socket } from 'socket.io';
 import { AuthWsMiddleware } from 'src/comman/guards';
 import { GameService } from 'src/controllers/v1/game/game.service';
 import { PresenceService } from 'src/utils/presence.service';
 
-@WebSocketGateway({
-  cors: { origin: '*' },
-})
+@WebSocketGateway({ cors: { origin: '*' } })
 export class GameGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
@@ -31,120 +28,101 @@ export class GameGateway
 
   afterInit(server: Server) {
     this.server = server;
-    console.info('Socket server initialized');
     server.use(AuthWsMiddleware(this.jwtService));
   }
 
   handleConnection(client: Socket) {
     const user = client?.data?.user;
-    if (user) {
-      this.presenceService.addConnection(user._id, client.id);
-    }
+    if (user) this.presenceService.addConnection(user._id, client.id);
   }
 
   handleDisconnect(client: Socket) {
     const user = client?.data?.user;
-    if (user) {
-      this.presenceService.removeConnection(user._id, client.id);
-    }
+    if (user) this.presenceService.removeConnection(user._id, client.id);
   }
 
   @SubscribeMessage('joinRoom')
-  async handleJoinRoom(client: Socket, payload: { gameId: string }) {
+  async joinRoom(client: Socket, payload: { gameId: string }) {
     try {
-      const userId = client?.data?.user?._id;
-      const isPlayerAdd = await this.gameService.joinPlayerToGame({
-        ...payload,
+      const userId = client.data.user._id;
+      const name = `${client.data.user.firstName} ${client.data.user.lastName} `;
+      await this.gameService.joinPlayerToGame({
+        gameId: payload.gameId,
         userId,
+        name,
       });
-      if (!isPlayerAdd) throw new CustomeError(messageKey.roomJoinFail);
+
       client.join(payload.gameId);
+
       this.server.to(payload.gameId).emit('playerJoined', {
-        userId,
         players: await this.gameService.getGamePlayers(payload.gameId),
       });
     } catch (err) {
-      client.emit('error', { message: err?.message || 'Failed to join room' });
+      client.emit('ERROR', { message: err.message });
+    }
+  }
+
+  @SubscribeMessage('joingameplay')
+  async joinGamePlay(client: Socket, payload: { gameId: string }) {
+    try {
+      client.join(payload.gameId);
+    } catch (err) {
+      client.emit('ERROR', { message: err.message });
     }
   }
 
   @SubscribeMessage('selectIcon')
-  async handleSelectIcon(
-    client: Socket,
-    payload: { gameId: string; icon: string },
-  ) {
+  async selectIcon(client: Socket, payload: { gameId: string; icon: string }) {
     try {
-      const userId = client?.data?.user?._id;
-      if (!userId) throw new CustomeError(messageKey.unauthorizeResourse);
+      const userId = client.data.user._id;
 
-      const updatedPlayers = await this.gameService.setPlayerIcon({
+      const players = await this.gameService.setPlayerIcon({
         gameId: payload.gameId,
         userId,
         icon: payload.icon,
       });
 
-      // broadcast updated players to the room
-      this.server.to(payload.gameId).emit('playerUpdated', {
-        players: updatedPlayers,
-      });
-
-      // return ack to the caller (socket.emit with callback will receive this)
-      return { status: true, players: updatedPlayers };
+      this.server.to(payload.gameId).emit('playerUpdated', { players });
+      return { status: true };
     } catch (err) {
-      // emit error to caller only
-      client.emit('error', {
-        message: err?.message || 'Failed to select icon',
-      });
-      // also return failure ack
-      return {
-        status: false,
-        message: err?.message || 'Failed to select icon',
-      };
+      client.emit('ERROR', { message: err.message });
+      return { status: false };
     }
   }
 
   @SubscribeMessage('startGame')
-  async handleStartGame(@MessageBody() data: { gameId: string }) {
-    const { gameId } = data;
+  async startGame(client: Socket, payload: { gameId: string }) {
+    try {
+      const game = await this.gameService.startGame(payload.gameId);
 
-    // const game = await this.gameService.startGame(gameId);
-    // if (!game) return { status: false, message: 'Game not found or cannot start' };
-
-    this.server.to(gameId).emit('gameStarted', { gameId });
-    return { status: true };
+      this.server.to(payload.gameId).emit('gameStarted', game);
+      return { status: true };
+    } catch (err) {
+      client.emit('ERROR', { message: err.message });
+      return { status: false };
+    }
   }
 
-  /** -------------------------
-   * Player makes a move
-   * -------------------------
-   * */
   @SubscribeMessage('PLAY_MOVE')
-  async handlePlayMove(
-    @MessageBody()
-    body: { gameId: string; userId: string; row: number; col: number },
+  async playMove(
+    @MessageBody() body: { gameId: string; row: number; col: number },
     @ConnectedSocket() client: Socket,
   ) {
-    const { _id } = client.data.user;
-    const { gameId, row, col } = body;
-
     try {
       const updatedGame = await this.gameService.playMove(
-        gameId,
-        _id,
-        row,
-        col,
+        body.gameId,
+        client.data.user._id,
+        body.row,
+        body.col,
       );
-
-      // broadcast updated full game to all players in the room
-      this.server.to(gameId).emit('GAME_UPDATED', updatedGame);
-      // also send to the caller (redundant but keeps parity)
-      client.emit('GAME_UPDATED', updatedGame);
-
+      this.server.to(body.gameId).emit('GAME_UPDATED', updatedGame);
+      if (updatedGame.completed) {
+        this.server.to(body.gameId).emit('GAME_COMPLETE');
+      }
       return { success: true };
     } catch (err) {
-      // if err is BadRequestException from Nest it will include message
-      const message = err?.message ?? 'move_failed';
-      return { error: message };
+      client.emit('ERROR', { message: err.message });
+      return { success: false };
     }
   }
 }

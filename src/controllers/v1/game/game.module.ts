@@ -4,11 +4,14 @@ import { GameController } from './game.controller';
 import { GameGateway } from '@gateways';
 import { MongooseModule } from '@nestjs/mongoose';
 import { modelKey } from '@constants';
-import { GameSchema } from '@models';
+import { GameResultSchema, GameSchema } from '@models';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: modelKey.game, schema: GameSchema }]),
+    MongooseModule.forFeature([
+      { name: modelKey.game, schema: GameSchema },
+      { name: modelKey.gameResult, schema: GameResultSchema },
+    ]),
   ],
   controllers: [GameController],
   providers: [GameService, GameGateway],
