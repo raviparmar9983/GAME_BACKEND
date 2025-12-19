@@ -33,6 +33,7 @@ export class AuthService {
         },
         {
           ...userData,
+          coins: this.configService.get('configService') ?? 10000,
           hash,
           isDeleted: false,
           $setOnInsert: {
@@ -71,11 +72,8 @@ export class AuthService {
       if (!passwordMatch) throw new CustomeError(messageKey.invalidCredentials);
       const useData = {
         _id: user._id.toString(),
-        firstName: user.firstName,
-        lastName: user.lastName,
+        userName: user.userName,
         email: user.email,
-        phoneNumber: user.phoneNumber,
-        profilePic: user.profilePic,
       };
       const token = await this.jwtService.createToken(useData);
       return {
@@ -189,11 +187,9 @@ export class AuthService {
       message: messageKey.successMessage,
       data: {
         _id: user._id.toString(),
-        firstName: user.firstName,
-        lastName: user.lastName,
+        userName: user.userName,
         email: user.email,
-        phoneNumber: user.phoneNumber,
-        profilePic: user.profilePic,
+        coins: user.coins,
       },
     };
   }

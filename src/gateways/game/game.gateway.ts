@@ -45,7 +45,7 @@ export class GameGateway
   async joinRoom(client: Socket, payload: { gameId: string }) {
     try {
       const userId = client.data.user._id;
-      const name = `${client.data.user.firstName} ${client.data.user.lastName} `;
+      const name = client.data.user.userName;
       await this.gameService.joinPlayerToGame({
         gameId: payload.gameId,
         userId,

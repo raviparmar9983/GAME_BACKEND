@@ -104,7 +104,7 @@ export class GameService {
   async getGamePlayers(gameId: string) {
     const game = await this.gameModel
       .findById(gameId)
-      .populate('players.userId', 'firstName lastName email');
+      .populate('players.userId', 'userName email');
 
     return game?.players || [];
   }
@@ -165,7 +165,7 @@ export class GameService {
   async getGameById(gameId: string) {
     const game = await this.gameModel
       .findById(gameId)
-      .populate('players.userId', 'firstName lastName')
+      .populate('players.userId', 'userName')
       .lean();
 
     if (!game) throw new NotFoundException('Game not found');
@@ -180,8 +180,7 @@ export class GameService {
       roomCode: game.roomCode,
       players: game.players.map((p) => ({
         _id: p.userId?._id,
-        firstName: (p.userId as any)?.firstName,
-        lastName: (p.userId as any)?.lastName,
+        userName: (p.userId as any)?.userName,
         icon: p.icon,
       })),
     };

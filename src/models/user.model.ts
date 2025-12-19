@@ -2,11 +2,7 @@ import mongoose from 'mongoose';
 
 const UserSchema = new mongoose.Schema(
   {
-    firstName: {
-      type: String,
-      required: true,
-    },
-    lastName: {
+    userName: {
       type: String,
       required: true,
     },
@@ -15,20 +11,12 @@ const UserSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-    birthDate: {
-      type: Date,
-    },
     hash: {
       type: String,
       required: true,
     },
-    phoneNumber: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    profilePic: {
-      type: String,
+    coins: {
+      type: Number,
     },
     isDeleted: {
       type: Boolean,
