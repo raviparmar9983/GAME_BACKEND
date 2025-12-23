@@ -7,6 +7,8 @@ export interface UserDTO {
   passwordResetTokenExpires?: Date;
   passwordResetToken?: string;
   isDeleted?: boolean;
+  loginStreak: number;
+  lastLoginRewardAt: Date;
 }
 
 export interface LoginDTO {

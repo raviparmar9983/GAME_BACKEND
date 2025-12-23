@@ -58,3 +58,6 @@ const GameSchema = new Schema(
 );
 
 export { GameSchema };
+
+// i am giving you my game model and game controller , game socket gateway ,game.service.ts
+// analyis it closely adn in depth then i will let you know  my requiret

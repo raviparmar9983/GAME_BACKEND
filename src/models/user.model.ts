@@ -22,6 +22,8 @@ const UserSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    loginStreak: { type: Number, default: 0 },
+    lastLoginRewardAt: { type: Date },
     isEmailVerified: { type: Boolean, default: false },
     passwordResetToken: { type: String },
     passwordResetTokenExpires: { type: Date },
