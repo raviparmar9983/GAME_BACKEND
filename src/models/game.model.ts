@@ -53,6 +53,14 @@ const GameSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    entryFee: {
+      type: Number,
+      default: 0,
+    },
+    potCoins: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true },
 );

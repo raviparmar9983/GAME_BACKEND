@@ -36,9 +36,10 @@ export class AuthService {
           coins: this.configService.get('configService') ?? 10000,
           hash,
           isDeleted: false,
-          $setOnInsert: {
-            isEmailVerified: false,
-          },
+          isEmailVerified: true,
+          // $setOnInsert: {
+          //   isEmailVerified: false,
+          // },
         },
         { new: true, upsert: true },
       );
