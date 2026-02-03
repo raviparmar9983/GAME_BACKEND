@@ -1,55 +1,109 @@
 import { GameStatus, messageKey, modelKey } from '@constants';
-import { GameDTO, GameResultDTO } from '@dtos';
+import { GameDTO, GameResultDTO, UserDTO } from '@dtos';
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { CustomeError } from '@utils';
-import { Model } from 'mongoose';
+import mongoose, { Model } from 'mongoose';
 import { calculateScores } from 'src/utils/calculateResult';
 
 @Injectable()
 export class GameService {
   constructor(
     @InjectModel(modelKey.game) private readonly gameModel: Model<GameDTO>,
+    @InjectModel(modelKey.users) private readonly userModel: Model<UserDTO>,
     @InjectModel(modelKey.gameResult)
     private readonly gameResultModel: Model<GameResultDTO>,
+    @InjectConnection() private readonly connection: any,
   ) {}
-
   async createGame(userId: string, gameData: GameDTO, name: string) {
-    const { gridSize, playerCount } = gameData;
-    const grid = this.createGrid(gridSize);
+    const session = await this.connection.startSession();
 
-    let roomCode = '';
-    let attempts = 0;
+    try {
+      session.startTransaction();
 
-    while (attempts < 5) {
-      attempts++;
-      roomCode = this.generateRoomCode(6);
-      const exists = await this.gameModel.findOne({ roomCode });
-      if (!exists) break;
+      const { gridSize, playerCount, entryFee } = gameData;
+      const grid = this.createGrid(gridSize);
+
+      // 🔁 generate unique room code
+      let roomCode = '';
+      let attempts = 0;
+
+      while (attempts < 5) {
+        attempts++;
+        roomCode = this.generateRoomCode(6);
+        const exists = await this.gameModel
+          .findOne({ roomCode })
+          .session(session);
+
+        if (!exists) break;
+      }
+
+      if (!roomCode) {
+        throw new CustomeError('Unable to generate room code');
+      }
+
+      // 🔍 fetch user
+      const user = await this.userModel.findById(userId).session(session);
+
+      if (!user) {
+        throw new CustomeError(messageKey.recordNotFound('User'));
+      }
+
+      // 💰 coin validation
+      if (user.coins < entryFee) {
+        throw new CustomeError('Insufficient coins');
+      }
+
+      // 🔥 reserve coins (creator pays entry fee)
+      user.coins -= entryFee;
+
+      // 🎮 create game with initial pot
+      const game = await this.gameModel.create(
+        [
+          {
+            gridSize,
+            grid,
+            playerCount,
+            roomCode,
+            entryFee,
+            potCoins: entryFee, // 👈 initial pot
+            players: [
+              {
+                userId,
+                name,
+                isConnected: true,
+                contributedCoins: entryFee,
+                paidEntry: true,
+              },
+            ],
+            currTurn: userId,
+            status: GameStatus.WAITING,
+            completed: false,
+          },
+        ],
+        { session },
+      );
+
+      await user.save({ session });
+
+      await session.commitTransaction();
+
+      return {
+        status: true,
+        message: messageKey.recordCreatedSuccessfully('Room'),
+        data: game[0],
+      };
+    } catch (err) {
+      await session.abortTransaction();
+      throw err;
+    } finally {
+      session.endSession();
     }
-
-    const game = await this.gameModel.create({
-      gridSize,
-      grid,
-      playerCount,
-      roomCode,
-      players: [{ userId, name }],
-      currTurn: userId,
-      status: GameStatus.WAITING,
-      completed: false,
-    });
-
-    return {
-      status: true,
-      message: messageKey.recordCreatedSuccessfully('Room'),
-      data: game,
-    };
   }
-
   createGrid(gridSize: number) {
     return Array.from({ length: gridSize }, () =>
       Array.from({ length: gridSize }, () => null),
@@ -76,35 +130,71 @@ export class GameService {
     userId: string;
     name: string;
   }) {
-    const game = await this.gameModel.findById(gameId);
-    if (!game) throw new CustomeError(messageKey.recordNotFound('Game'));
+    const session = await this.connection.startSession();
 
-    if (game.status !== GameStatus.WAITING) {
-      if (game.completed) {
-        throw new CustomeError('Game Completed');
+    try {
+      session.startTransaction();
+
+      const game = await this.gameModel.findById(gameId).session(session);
+
+      if (!game) {
+        throw new CustomeError(messageKey.recordNotFound('Game'));
       }
-      throw new CustomeError('Game already started');
-    }
 
-    if (game.players.find((p) => String(p.userId) === String(userId)))
+      if (game.status !== GameStatus.WAITING) {
+        if (game.completed) {
+          throw new CustomeError('Game Completed');
+        }
+        throw new CustomeError('Game already started');
+      }
+
+      // ✅ prevent duplicate join
+      if (game.players.some((p) => String(p.userId) === String(userId))) {
+        await session.commitTransaction();
+        return true;
+      }
+
+      if (game.players.length >= game.playerCount) {
+        throw new CustomeError(messageKey.roomIsFull);
+      }
+
+      const user = await this.userModel.findById(userId).session(session);
+
+      if (!user) {
+        throw new CustomeError(messageKey.recordNotFound('User'));
+      }
+
+      if (user.coins < game.entryFee) {
+        throw new CustomeError('Insufficient coins');
+      }
+
+      user.coins -= game.entryFee;
+      game.potCoins += game.entryFee;
+
+      game.players.push({
+        userId: new mongoose.Types.ObjectId(userId),
+        name,
+        isConnected: true,
+        icon: null,
+      });
+
+      await user.save({ session });
+      await game.save({ session });
+
+      await session.commitTransaction();
       return true;
-
-    if (game.players.length >= game.playerCount) {
-      throw new CustomeError(messageKey.roomIsFull);
+    } catch (err) {
+      await session.abortTransaction();
+      throw err;
+    } finally {
+      session.endSession();
     }
-
-    await this.gameModel.updateOne(
-      { _id: gameId },
-      { $push: { players: { userId, isConnected: true, name } } },
-    );
-
-    return true;
   }
 
   async getGamePlayers(gameId: string) {
     const game = await this.gameModel
       .findById(gameId)
-      .populate('players.userId', 'firstName lastName email');
+      .populate('players.userId', 'userName email');
 
     return game?.players || [];
   }
@@ -165,7 +255,7 @@ export class GameService {
   async getGameById(gameId: string) {
     const game = await this.gameModel
       .findById(gameId)
-      .populate('players.userId', 'firstName lastName')
+      .populate('players.userId', 'userName')
       .lean();
 
     if (!game) throw new NotFoundException('Game not found');
@@ -180,8 +270,7 @@ export class GameService {
       roomCode: game.roomCode,
       players: game.players.map((p) => ({
         _id: p.userId?._id,
-        firstName: (p.userId as any)?.firstName,
-        lastName: (p.userId as any)?.lastName,
+        userName: (p.userId as any)?.userName,
         icon: p.icon,
       })),
     };
@@ -280,7 +369,8 @@ export class GameService {
         isConnectedAtEnd: gamePlayer?.isConnected ?? false,
       };
     });
-
+    const winners = finalPlayers.filter((p) => p.isWinner).map((w) => w.userId);
+    await this.settleGameCoins(gameId, winners);
     // 6️⃣ Decide game status
     const gameStatus = maxScore === 0 ? 'DRAW' : 'WIN';
 
@@ -302,5 +392,54 @@ export class GameService {
       source: 'CALCULATED',
       result: savedResult,
     };
+  }
+
+  async settleGameCoins(gameId: string, winnerIds: string[]) {
+    if (!winnerIds?.length) return true;
+    const session = await this.connection.startSession();
+
+    try {
+      session.startTransaction();
+
+      const game = await this.gameModel
+        .findOne({ _id: gameId })
+        .session(session);
+
+      if (!game) throw new NotFoundException('Game not found');
+
+      // 🟡 DRAW → refund everyone
+      if (winnerIds.length === 0) {
+        for (const player of game.players) {
+          await this.userModel.updateOne(
+            { _id: player.userId },
+            { $inc: { coins: game.entryFee } },
+            { session },
+          );
+        }
+        game.potCoins = 0;
+        await game.save({ session });
+        await session.commitTransaction();
+        return;
+      }
+
+      // 🟢 WIN → distribute pot
+      const rewardPerWinner = Math.floor(game.potCoins / winnerIds.length);
+
+      for (const userId of winnerIds) {
+        await this.userModel.updateOne(
+          { _id: userId },
+          { $inc: { coins: rewardPerWinner } },
+          { session },
+        );
+      }
+      game.potCoins = 0;
+      await game.save({ session });
+      await session.commitTransaction();
+    } catch (err) {
+      await session.abortTransaction();
+      throw err;
+    } finally {
+      session.endSession();
+    }
   }
 }

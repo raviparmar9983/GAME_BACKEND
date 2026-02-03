@@ -1,15 +1,14 @@
 export interface UserDTO {
-  firstName: string;
-  lastName: string;
-  phoneNumber: string;
+  userName: string;
+  coins: number;
   email: string;
   hash: string;
-  profilePic?: string;
-  birthDate?: Date;
   isEmailVerified: boolean;
   passwordResetTokenExpires?: Date;
   passwordResetToken?: string;
   isDeleted?: boolean;
+  loginStreak: number;
+  lastLoginRewardAt: Date;
 }
 
 export interface LoginDTO {

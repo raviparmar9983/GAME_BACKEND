@@ -1,4 +1,4 @@
-import { modelKey, messageKey } from '@constants';
+import { modelKey, messageKey, DAILY_REWARDS } from '@constants';
 import { UserDTO, LoginDTO } from '@dtos';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -33,11 +33,13 @@ export class AuthService {
         },
         {
           ...userData,
+          coins: this.configService.get('configService') ?? 10000,
           hash,
           isDeleted: false,
-          $setOnInsert: {
-            isEmailVerified: false,
-          },
+          isEmailVerified: true,
+          // $setOnInsert: {
+          //   isEmailVerified: false,
+          // },
         },
         { new: true, upsert: true },
       );
@@ -71,11 +73,8 @@ export class AuthService {
       if (!passwordMatch) throw new CustomeError(messageKey.invalidCredentials);
       const useData = {
         _id: user._id.toString(),
-        firstName: user.firstName,
-        lastName: user.lastName,
+        userName: user.userName,
         email: user.email,
-        phoneNumber: user.phoneNumber,
-        profilePic: user.profilePic,
       };
       const token = await this.jwtService.createToken(useData);
       return {
@@ -182,19 +181,72 @@ export class AuthService {
 
   async getUserDetailsByToken(userId: string) {
     const user = await this.userModel.findById(userId);
-    if (!user || user.isDeleted)
+
+    if (!user || user.isDeleted) {
       throw new CustomeError(messageKey.userNotFound);
+    }
+
+    let rewardedToday = false;
+    let rewardCoins = 0;
+
+    const today = new Date();
+
+    // 🔒 Check if reward already given today
+    if (
+      user.lastLoginRewardAt &&
+      this.isSameDay(user.lastLoginRewardAt, today)
+    ) {
+      // already rewarded today → do nothing
+    } else {
+      // 🔁 Check streak
+      if (user.lastLoginRewardAt && this.isYesterday(user.lastLoginRewardAt)) {
+        user.loginStreak += 1;
+      } else {
+        user.loginStreak = 1; // reset streak
+      }
+
+      // 🔄 Cycle after 7 days
+      if (user.loginStreak > 7) {
+        user.loginStreak = 1;
+      }
+
+      rewardCoins = DAILY_REWARDS[user.loginStreak - 1];
+
+      user.coins += rewardCoins;
+      user.lastLoginRewardAt = today;
+      rewardedToday = true;
+
+      await user.save();
+    }
+
     return {
       status: true,
       message: messageKey.successMessage,
       data: {
         _id: user._id.toString(),
-        firstName: user.firstName,
-        lastName: user.lastName,
+        userName: user.userName,
         email: user.email,
-        phoneNumber: user.phoneNumber,
-        profilePic: user.profilePic,
+        coins: user.coins,
+
+        // 👇 UI info
+        rewardedToday,
+        rewardCoins,
+        loginStreak: user.loginStreak,
       },
     };
+  }
+
+  private isSameDay(d1: Date, d2: Date) {
+    return (
+      d1.getFullYear() === d2.getFullYear() &&
+      d1.getMonth() === d2.getMonth() &&
+      d1.getDate() === d2.getDate()
+    );
+  }
+
+  private isYesterday(lastDate: Date) {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return this.isSameDay(lastDate, yesterday);
   }
 }

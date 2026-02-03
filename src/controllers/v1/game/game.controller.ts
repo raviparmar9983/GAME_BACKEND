@@ -31,12 +31,8 @@ export class GameController {
     @Res() res: Response,
   ) {
     try {
-      const { _id, firstName, lastName } = req?.body?.jwtTokendata;
-      const game = await this.gameService.createGame(
-        _id,
-        gameData,
-        `${firstName} ${lastName}`,
-      );
+      const { _id, userName } = req?.body?.jwtTokendata;
+      const game = await this.gameService.createGame(_id, gameData, userName);
       res.status(HttpStatus.CREATED).json(game);
     } catch (err) {
       handleError(res, err);
@@ -50,11 +46,11 @@ export class GameController {
     @Res() res: Response,
   ) {
     try {
-      const { _id, firstName, lastName } = req?.body?.jwtTokendata;
+      const { _id, userName } = req?.body?.jwtTokendata;
       const game = await this.gameService.joinPlayerFromCode(
         code,
         _id,
-        `${firstName} ${lastName}`,
+        userName,
       );
       res.status(HttpStatus.CREATED).json(game);
     } catch (err) {

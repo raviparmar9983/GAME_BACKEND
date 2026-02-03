@@ -19,4 +19,6 @@ export interface GameDTO extends AuditFieldDTO {
   status?: GameStatus;
   completed?: boolean;
   roomCode?: boolean;
+  entryFee: number;
+  potCoins: number;
 }

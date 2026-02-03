@@ -53,8 +53,19 @@ const GameSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    entryFee: {
+      type: Number,
+      default: 0,
+    },
+    potCoins: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true },
 );
 
 export { GameSchema };
+
+// i am giving you my game model and game controller , game socket gateway ,game.service.ts
+// analyis it closely adn in depth then i will let you know  my requiret
