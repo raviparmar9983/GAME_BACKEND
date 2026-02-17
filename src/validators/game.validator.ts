@@ -11,4 +11,6 @@ export const createRoomValidators = yup.object({
       const { gridSize } = this.parent;
       return value <= gridSize;
     }),
+  entryFee: yup.number().required('Entry fee is required').min(100),
+  isBotGame: yup.boolean().optional(),
 });

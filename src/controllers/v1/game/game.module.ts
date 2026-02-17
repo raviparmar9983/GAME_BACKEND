@@ -16,5 +16,6 @@ import { GameResultSchema, GameSchema, UserSchema } from '@models';
   ],
   controllers: [GameController],
   providers: [GameService, GameGateway],
+  exports: [GameService],
 })
 export class GameModule {}

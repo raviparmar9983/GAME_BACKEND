@@ -261,6 +261,7 @@ export class GameService {
     if (!game) throw new NotFoundException('Game not found');
 
     return {
+      _id: game._id,
       grid: game.grid,
       currTurn: game.currTurn,
       size: game.gridSize,
