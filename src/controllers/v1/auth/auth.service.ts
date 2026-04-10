@@ -1,5 +1,5 @@
 import { modelKey, messageKey, DAILY_REWARDS } from '@constants';
-import { UserDTO, LoginDTO } from '@dtos';
+import { UserDTO, LoginDTO, CrazyGamesAuthDTO } from '@dtos';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
@@ -13,6 +13,7 @@ import {
 } from '@utils';
 import { Model } from 'mongoose';
 import { verificationEmail } from 'src/comman/templates';
+import { CrazyGamesTokenVerifierService } from './crazygames-token-verifier.service';
 
 @Injectable()
 export class AuthService {
@@ -22,7 +23,60 @@ export class AuthService {
     private cryptoService: CryptoService,
     private emailService: EmailService,
     private configService: ConfigService,
+    private crazyGamesTokenVerifierService: CrazyGamesTokenVerifierService,
   ) {}
+
+  async authenticateCrazyGamesUser(body: CrazyGamesAuthDTO) {
+    const payload = await this.crazyGamesTokenVerifierService.verifyToken(
+      body?.token,
+    );
+
+    const user = await this.userModel.findOneAndUpdate(
+      {
+        crazyGamesId: payload.userId,
+      },
+      {
+        $set: {
+          crazyGamesId: payload.userId,
+          userName: payload.username,
+          avatar: payload.profilePictureUrl,
+          isDeleted: false,
+        },
+        $setOnInsert: {
+          coins: this.configService.get<number>('INITIAL_COINS') ?? 0,
+          loginStreak: 0,
+        },
+      },
+      {
+        new: true,
+        upsert: true,
+      },
+    );
+
+    if (!user) {
+      throw new CustomeError(messageKey.recordNotCreated);
+    }
+
+    const accessToken = await this.jwtService.createToken({
+      _id: user._id.toString(),
+      userName: user.userName,
+      crazyGamesId: user.crazyGamesId,
+    });
+
+    return {
+      status: true,
+      message: messageKey.loginSuccessMessage,
+      data: {
+        _id: user._id.toString(),
+        crazyGamesId: user.crazyGamesId,
+        username: user.userName,
+        profilePictureUrl: user.avatar ?? null,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+      token: accessToken,
+    };
+  }
 
   async registerUser(userData: UserDTO) {
     try {

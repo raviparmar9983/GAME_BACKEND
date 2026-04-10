@@ -1,6 +1,8 @@
 export interface JWTPayLoadDTO {
   _id: string;
-  email: string;
+  email?: string;
+  userName?: string;
+  crazyGamesId?: string;
 }
 
 export interface BaseListQueryParamDTO {

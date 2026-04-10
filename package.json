@@ -75,6 +75,25 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "moduleNameMapper": {
+      "^@constants$": "<rootDir>/constants/index.ts",
+      "^@decorators$": "<rootDir>/comman/decorators/index.ts",
+      "^@filters$": "<rootDir>/comman/filters/index.ts",
+      "^@guards$": "<rootDir>/comman/guards/index.ts",
+      "^@interceptors$": "<rootDir>/comman/interceptor/index.ts",
+      "^@middlewares$": "<rootDir>/comman/middlewares/index.ts",
+      "^@pipes$": "<rootDir>/comman/pipe/index.ts",
+      "^@templates$": "<rootDir>/comman/templates/index.ts",
+      "^@v1$": "<rootDir>/controllers/v1/index.ts",
+      "^@modules$": "<rootDir>/modules/index.ts",
+      "^@dtos$": "<rootDir>/dtos/index.ts",
+      "^@models$": "<rootDir>/models/index.ts",
+      "^@queries$": "<rootDir>/queries/index.ts",
+      "^@utils$": "<rootDir>/utils/index.ts",
+      "^@validators$": "<rootDir>/validators/index.ts",
+      "^@gateways$": "<rootDir>/gateways/index.ts",
+      "^src/(.*)$": "<rootDir>/$1"
+    },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],

@@ -1,4 +1,10 @@
-import { UserDTO, LoginDTO, ForgotPasswordDTO, ResetPasswordDTO } from '@dtos';
+import {
+  UserDTO,
+  LoginDTO,
+  ForgotPasswordDTO,
+  ResetPasswordDTO,
+  CrazyGamesAuthDTO,
+} from '@dtos';
 import {
   Body,
   Controller,
@@ -21,7 +27,7 @@ import { Response } from 'express';
 import { YupValidationPipe } from 'src/comman/pipe';
 import { AuthService } from './auth.service';
 import { AuthGuard } from 'src/comman/guards';
-@Controller('v1/auth')
+@Controller(['v1/auth', 'auth'])
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -41,6 +47,19 @@ export class AuthController {
     try {
       const loginInfo = await this.authService.loginUser(loginData);
       res.status(HttpStatus.OK).json(loginInfo);
+    } catch (error) {
+      await handleError(res, error);
+    }
+  }
+
+  @Post('/crazygames')
+  async crazyGamesAuth(
+    @Body() body: CrazyGamesAuthDTO,
+    @Res() res: Response,
+  ) {
+    try {
+      const authResult = await this.authService.authenticateCrazyGamesUser(body);
+      res.status(HttpStatus.OK).json(authResult);
     } catch (error) {
       await handleError(res, error);
     }

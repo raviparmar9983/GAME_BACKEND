@@ -2,18 +2,28 @@ import mongoose from 'mongoose';
 
 const UserSchema = new mongoose.Schema(
   {
+    crazyGamesId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
     userName: {
       type: String,
       required: true,
     },
+    avatar: {
+      type: String,
+    },
     email: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
+      sparse: true,
     },
     hash: {
       type: String,
-      required: true,
+      required: false,
     },
     coins: {
       type: Number,
