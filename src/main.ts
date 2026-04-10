@@ -9,10 +9,8 @@ async function bootstrap() {
     logger: ['error', 'warn'],
   });
   const configService = app.get(ConfigService);
-
-  app.enableCors({
-  origin: '*',
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+app.enableCors({
+  origin: true, // reflect request origin
   credentials: true,
 });
 
