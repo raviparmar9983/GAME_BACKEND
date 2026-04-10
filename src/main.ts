@@ -11,15 +11,10 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
 
   app.enableCors({
-    origin: [
-      'https://www.crazygames.com',
-      'https://games.crazygames.com',
-      'http://192.168.1.82:5173',
-      'http://localhost:5173',
-    ],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    credentials: true,
-  });
+  origin: '*',
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  credentials: true,
+});
 
   const port: number = configService.get('PORT') || 8080;
   app.useGlobalInterceptors(new LoggerInterceptor());
